@@ -1,0 +1,66 @@
+version: '3.9'
+
+services:
+
+  api:
+    build: .
+    container_name: ai_api
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py runserver 0.0.0.0:8000"
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+          ignore: # Best practice: ignore temporary files
+            - "**/__pycache__/"
+            - "*.pyc"
+            - "*.egg-info"
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+
+  worker:
+    build: .
+    container_name: ai_celery_worker
+    command: celery -A core worker -l info # Command to start the worker
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+          ignore: # Best practice: ignore temporary files
+            - "**/__pycache__/"
+            - "*.pyc"
+            - "*.egg-info"
+    env_file:
+      - .env
+    depends_on:
+      - redis
+      - db
+
+  db:
+    image: postgres:15
+    container_name: ai_postgres_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7-alpine
+    container_name: ai_redis
+    ports:
+      - "6379:6379"
+
+volumes:
+  postgres_data:

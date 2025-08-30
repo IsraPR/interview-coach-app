@@ -1,10 +1,55 @@
 [project]
 name = "interview-coach-app"
+description = "A web application that leverages AI to help users practice and improve their interview skills through real-time feedback and interactive sessions."
 version = "0.1.0"
-description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "django>=4.2.23",
-    "django-ninja>=1.4.3",
+    "django==5.1",
+    "django-ninja==1.4.0",
+    "django-environ==0.11.2",
+    "daphne==4.1.0",
+    "psycopg2-binary==2.9.9", # For PostgreSQL
+    # --- AI & Async ---
+    "openai==1.30.1",
+    "boto3==1.34.120", # AWS SDK
+    # --- WebSocket Support ---
+    "channels==4.0.0",
+    "channels-redis==4.2.0", # Recommended channel layer for production
+    "celery[redis]==5.4.0",
+    "loguru>=0.7.3",
 ]
+
+# CORRECTED SECTION
+[project.optional-dependencies]
+development = [
+    "black==24.4.2",
+    "ruff==0.4.8",
+    "poethepoet>=0.37.0",
+]
+
+[tool.poe.tasks]
+# Replaces 'make help'
+help = """
+Available commands:
+  poe up-full     - Start all services (api, db, redis, worker) using .env
+  poe up-lite     - Start only the api and db services using .env.lite
+  poe down        - Stop and remove all running containers
+  poe logs        - Follow logs from all services
+"""
+lint = "ruff check ."
+# Replaces 'make up-full'
+up-full.cmd = "docker compose up --build --watch"
+up-full.help = "Start all services with full dependencies"
+
+# Replaces 'make up-lite'
+up-lite.cmd = "docker compose --env-file .env.lite up --build --watch api db"
+up-lite.help = "Start api and db services only"
+
+# Replaces 'make down'
+down.cmd = "docker-compose down"
+down.help = "Stop and remove all containers"
+
+# Replaces 'make logs'
+logs.cmd = "docker-compose logs -f"
+logs.help = "Follow container logs"
