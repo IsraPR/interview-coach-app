@@ -5,51 +5,58 @@ version = "0.1.0"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    #--- Django and related ---
     "django==5.1",
     "django-ninja==1.4.0",
     "django-environ==0.11.2",
     "daphne==4.1.0",
+    #--- Database ---
     "psycopg2-binary==2.9.9", # For PostgreSQL
-    # --- AI & Async ---
-    "openai==1.30.1",
+    # --- AWS ---
     "boto3==1.34.120", # AWS SDK
     # --- WebSocket Support ---
     "channels==4.0.0",
-    "channels-redis==4.2.0", # Recommended channel layer for production
+    "channels-redis==4.2.0",
+    #--- Asynchronous tasks ---
     "celery[redis]==5.4.0",
+    #--- Logging ---
     "loguru>=0.7.3",
+    #--- Bedrock runtime ---
+    "aws-sdk-bedrock-runtime>=0.0.2",
+    "smithy-aws-core>=0.0.3",
+    "yarl",
+    "aiohttp",
 ]
 
-# CORRECTED SECTION
-[project.optional-dependencies]
-development = [
+
+# Local dev dependencies
+[dependency-groups]
+dev = [
     "black==24.4.2",
     "ruff==0.4.8",
     "poethepoet>=0.37.0",
 ]
 
+# Poe tasks similar to Makefile commands
 [tool.poe.tasks]
-# Replaces 'make help'
 help = """
 Available commands:
   poe up-full     - Start all services (api, db, redis, worker) using .env
   poe up-lite     - Start only the api and db services using .env.lite
   poe down        - Stop and remove all running containers
   poe logs        - Follow logs from all services
+  poe lint        - Run ruff linter on the root codebase
 """
+
 lint = "ruff check ."
-# Replaces 'make up-full'
 up-full.cmd = "docker compose up --build --watch"
 up-full.help = "Start all services with full dependencies"
 
-# Replaces 'make up-lite'
 up-lite.cmd = "docker compose --env-file .env.lite up --build --watch api db"
 up-lite.help = "Start api and db services only"
 
-# Replaces 'make down'
 down.cmd = "docker-compose down"
 down.help = "Stop and remove all containers"
 
-# Replaces 'make logs'
 logs.cmd = "docker-compose logs -f"
 logs.help = "Follow container logs"

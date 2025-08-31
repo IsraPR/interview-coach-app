@@ -6,8 +6,11 @@ Base settings for the AI project.
 - Environment-specific settings are in development.py and production.py.
 """
 
-from pathlib import Path
 import environ
+import sys
+
+from pathlib import Path
+from loguru import logger
 
 # Initialize django-environ
 env = environ.Env(
@@ -53,6 +56,7 @@ INSTALLED_APPS = [
     # Your Apps
     "apps.users",
     "apps.interactions",
+    "apps.ai_engine",
 ]
 
 
@@ -175,3 +179,20 @@ else:
 
 CELERY_TASK_TIME_LIMIT = 5 * 60
 CELERY_TASK_SOFT_TIME_LIMIT = 4 * 60
+
+# LOGGING
+# ------------------------------------------------------------------------------
+# Loguru logger config
+# Set level; Use this logger through the api application
+logger.remove()
+logger.add(sys.stderr, level=env("LOG_LEVEL", default="DEBUG"))
+
+
+# AWS
+# ------------------------------------------------------------------------------
+DEFAULT_REGION = env("AWS_REGION", default="us-east-1")
+# Bedrock
+DEFAULT_AGENT_MODEL_ID = env("AGENT_MODEL_ID", default="amazon.nova-lite-v1:0")
+SPEECH_TO_SPEECH_MODEL_ID = env(
+    "SPEECH_TO_SPEECH_MODEL_ID", default="amazon.nova-sonic-v1:0"
+)
