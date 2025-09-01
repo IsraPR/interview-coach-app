@@ -10,6 +10,7 @@ import environ
 import sys
 
 from pathlib import Path
+from datetime import timedelta
 from loguru import logger
 
 # Initialize django-environ
@@ -202,3 +203,8 @@ SPEECH_TO_SPEECH_MODEL_ID = env(
 )
 
 AUTH_USER_MODEL = "users.User"
+NINJA_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=12),  # Default is 5 min
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    # Other options like SIGNING_KEY, etc.
+}
