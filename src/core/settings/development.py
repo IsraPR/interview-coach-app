@@ -18,4 +18,4 @@ ALLOWED_HOSTS = ["*"]
 # For example, you might want to configure email to print to the console instead of sending.
 # EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-print("LOADING DEVELOPMENT SETTINGS")
+logger.info("LOADING DEVELOPMENT SETTINGS")

@@ -20,7 +20,7 @@ env = environ.Env(
 
 # Build paths inside the project like this: ROOT_DIR / 'subdir'.
 # src/core/settings/base.py -> src/ -> /your_ai_project/
-BASE_DIR = Path(__file__).resolve().parent.parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 APPS_DIR = BASE_DIR / "apps"
 
 # Attempt to read the .env file, which should be in the project root.
@@ -42,6 +42,7 @@ ALLOWED_HOSTS = []
 # APPS
 # ------------------------------------------------------------------------------
 INSTALLED_APPS = [
+    # Third Party (server)
     "daphne",
     # Django Core
     "django.contrib.admin",
@@ -53,10 +54,13 @@ INSTALLED_APPS = [
     # Third Party
     "ninja",
     "channels",
-    # Your Apps
+    "ninja_extra",
+    # Custom Apps
     "apps.users",
     "apps.interactions",
     "apps.ai_engine",
+    "apps.common_models",
+    "apps.coaching",
 ]
 
 
@@ -196,3 +200,5 @@ DEFAULT_AGENT_MODEL_ID = env("AGENT_MODEL_ID", default="amazon.nova-lite-v1:0")
 SPEECH_TO_SPEECH_MODEL_ID = env(
     "SPEECH_TO_SPEECH_MODEL_ID", default="amazon.nova-sonic-v1:0"
 )
+
+AUTH_USER_MODEL = "users.User"
