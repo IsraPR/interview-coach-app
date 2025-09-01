@@ -1,3 +1,6 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
 [project]
 name = "interview-coach-app"
 description = "A web application that leverages AI to help users practice and improve their interview skills through real-time feedback and interactive sessions."
@@ -26,8 +29,14 @@ dependencies = [
     "smithy-aws-core>=0.0.3",
     "yarl",
     "aiohttp",
+    #--- Security ---
+    "django-ninja-jwt==5.3.0",
+    "django-soft-delete>=1.0.19",
+    "email-validator>=2.3.0",
 ]
 
+[tool.setuptools.packages.find]
+where = ["src"]  # Look for packages in the 'src' directory
 
 # Local dev dependencies
 [dependency-groups]
@@ -55,8 +64,20 @@ up-full.help = "Start all services with full dependencies"
 up-lite.cmd = "docker compose --env-file .env.lite up --build --watch api db"
 up-lite.help = "Start api and db services only"
 
+up-db.cmd = "docker compose --env-file .env up --build db"
+up-db.help = "Start the container db"
+down-db.cmd = "docker compose down"
+down-db.help = "Stops the container db"
+
 down.cmd = "docker-compose down"
 down.help = "Stop and remove all containers"
 
 logs.cmd = "docker-compose logs -f"
 logs.help = "Follow container logs"
+
+# Complex command with arguments
+[tool.poe.tasks.makemigrations]
+help = "Create new database migrations. Usage: poe makemigrations [app_name] [--name <migration_name>]"
+cmd = """
+python manage.py makemigrations $POE_ARGS
+"""
