@@ -468,6 +468,19 @@ wheels = [
 ]
 
 [[package]]
+name = "django-cors-headers"
+version = "4.3.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "asgiref" },
+    { name = "django" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8a/04/a280a98256602d3f4fffae37a9410711fb80f9d6cf199679f6e93bbdb8b3/django-cors-headers-4.3.1.tar.gz", hash = "sha256:0bf65ef45e606aff1994d35503e6b677c0b26cafff6506f8fd7187f3be840207", size = 21146, upload-time = "2023-11-14T17:27:29.31Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/fe/6a/3428ab5d1ec270e845f4ef064a7cefbf1339b4454788d77c00d36caa828c/django_cors_headers-4.3.1-py3-none-any.whl", hash = "sha256:0b1fd19297e37417fc9f835d39e45c8c642938ddba1acce0c1753d3edef04f36", size = 12785, upload-time = "2023-11-14T17:27:27.128Z" },
+]
+
+[[package]]
 name = "django-environ"
 version = "0.11.2"
 source = { registry = "https://pypi.org/simple" }
@@ -709,6 +722,7 @@ dependencies = [
     { name = "channels-redis" },
     { name = "daphne" },
     { name = "django" },
+    { name = "django-cors-headers" },
     { name = "django-environ" },
     { name = "django-ninja" },
     { name = "django-ninja-jwt" },
@@ -737,6 +751,7 @@ requires-dist = [
     { name = "channels-redis", specifier = "==4.2.0" },
     { name = "daphne", specifier = "==4.1.0" },
     { name = "django", specifier = "==5.1" },
+    { name = "django-cors-headers", specifier = "==4.3.1" },
     { name = "django-environ", specifier = "==0.11.2" },
     { name = "django-ninja", specifier = "==1.4.0" },
     { name = "django-ninja-jwt", specifier = "==5.3.0" },

@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     "ninja",
     "channels",
     "ninja_extra",
+    "corsheaders",
     # Custom Apps
     "apps.users",
     "apps.interactions",
@@ -70,6 +71,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -208,3 +210,7 @@ NINJA_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     # Other options like SIGNING_KEY, etc.
 }
+
+# CORS
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
+CORS_ALLOW_CREDENTIALS = True
