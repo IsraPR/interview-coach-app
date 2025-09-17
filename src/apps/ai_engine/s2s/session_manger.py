@@ -70,6 +70,8 @@ class S2sSessionManager:
         self.toolName = ""
         self.mcp_loc_client = mcp_client
         self.strands_agent = strands_agent
+        self.stream_healthy = asyncio.Event()  # NEW: The health signal
+        self.initialization_error = None  # NEW: To store any startup error
 
     def _initialize_client(self):
         """Initialize the Bedrock client."""
@@ -102,7 +104,7 @@ class S2sSessionManager:
         except Exception as ex:
             self.is_active = False
             print(f"Failed to initialize Bedrock client: {str(ex)}")
-            raise
+            raise ex
 
         try:
             # Initialize the stream
@@ -204,116 +206,134 @@ class S2sSessionManager:
         )
 
     async def _process_responses(self):
-        """Process incoming responses from Bedrock."""
-        while self.is_active:
-            try:
-                output = await self.stream.await_output()
-                result = await output[1].receive()
+        """
+        Main task to process incoming responses from the Bedrock stream.
+        Handles the health check and runs the main message loop.
+        """
+        try:
+            output = await self.stream.await_output()
+            # self.stream_healthy.set()  # Signal that the connection is established and healthy.
 
-                if result.value and result.value.bytes_:
-                    response_data = result.value.bytes_.decode("utf-8")
+            # Enter the main loop to process messages one by one.
+            while self.is_active:
+                await self._handle_next_message(output)
 
-                    json_data = json.loads(response_data)
-                    json_data["timestamp"] = int(
-                        time.time() * 1000
-                    )  # Milliseconds since epoch
+        except Exception as e:
+            logger.error(f"Fatal error in Bedrock response task: {e}")
+            self.initialization_error = e
+        finally:
+            logger.debug(
+                "Response processing loop ended. Setting health signal and cleaning up."
+            )
+            self.stream_healthy.set()  # GUARANTEES the connect method will unblock.
+            self.is_active = False
 
-                    event_name = None
-                    if "event" in json_data:
-                        event_name = list(json_data["event"].keys())[0]
-                        # if event_name == "audioOutput":
-                        #     print(json_data)
+    async def _handle_next_message(self, output_stream):
+        """Receives, decodes, and dispatches a single message from the stream."""
+        try:
+            result = await output_stream[1].receive()
+            if not (result.value and result.value.bytes_):
+                return  # Skip empty messages
 
-                        # Handle tool use detection
-                        if event_name == "toolUse":
-                            self.toolUseContent = json_data["event"]["toolUse"]
-                            self.toolName = json_data["event"]["toolUse"][
-                                "toolName"
-                            ]
-                            self.toolUseId = json_data["event"]["toolUse"][
-                                "toolUseId"
-                            ]
-                            logger.info(
-                                f"Tool use detected: {self.toolName}, ID: {self.toolUseId}, "
-                                + json.dumps(json_data["event"])
-                            )
+            response_data = result.value.bytes_.decode("utf-8")
+            json_data = json.loads(response_data)
 
-                        # Process tool use when content ends
-                        elif (
-                            event_name == "contentEnd"
-                            and json_data["event"][event_name].get("type")
-                            == "TOOL"
-                        ):
-                            prompt_name = json_data["event"]["contentEnd"].get(
-                                "promptName"
-                            )
-                            logger.info(
-                                "Processing tool use and sending result"
-                            )
-                            toolResult = await self.processToolUse(
-                                self.toolName, self.toolUseContent
-                            )
+            await self._dispatch_message(json_data)
 
-                            # Send tool start event
-                            toolContent = str(uuid.uuid4())
-                            tool_start_event = S2sEvent.content_start_tool(
-                                prompt_name, toolContent, self.toolUseId
-                            )
-                            await self.send_raw_event(tool_start_event)
+        except StopAsyncIteration:
+            logger.info("Bedrock stream has ended.")
+            self.is_active = False  # Signal the main loop to exit.
+        except json.JSONDecodeError:
+            logger.warning(
+                f"Received non-JSON response from Bedrock: {response_data}"
+            )
+            await self.output_queue.put({"raw_data": response_data})
+        except Exception as e:
+            logger.error(f"Error receiving or decoding message: {e}")
+            # Depending on severity, you might want to stop the session.
+            # For now, we log and continue, but for validation errors, stopping is better.
+            if "ValidationException" in str(e):
+                self.is_active = False
 
-                            # Send tool result event
-                            if isinstance(toolResult, dict):
-                                content_json_string = json.dumps(toolResult)
-                            else:
-                                content_json_string = toolResult
+    async def _dispatch_message(self, json_data: Dict[str, Any]):
+        """Inspects a message and routes it to the correct handler (e.g., tool use)."""
+        json_data["timestamp"] = int(time.time() * 1000)
 
-                            tool_result_event = S2sEvent.text_input_tool(
-                                prompt_name, toolContent, content_json_string
-                            )
-                            print("Tool result", tool_result_event)
-                            await self.send_raw_event(tool_result_event)
+        if "event" in json_data:
+            event_name = list(json_data["event"].keys())[0]
+            event_data = json_data["event"][event_name]
 
-                            # Send tool content end event
-                            tool_content_end_event = S2sEvent.content_end(
-                                prompt_name, toolContent
-                            )
-                            await self.send_raw_event(tool_content_end_event)
+            if event_name == "toolUse":
+                self._handle_tool_use_start(event_data)
+            elif (
+                event_name == "contentEnd" and event_data.get("type") == "TOOL"
+            ):
+                await self._handle_tool_use_end(event_data)
 
-                    # Put the response in the output queue for forwarding to the frontend
-                    await self.output_queue.put(json_data)
+        # Always forward the original message to the client.
+        await self.output_queue.put(json_data)
 
-            except json.JSONDecodeError as ex:
-                print(ex)
-                await self.output_queue.put({"raw_data": response_data})
-            except StopAsyncIteration as ex:
-                # Stream has ended
-                print(ex)
-            except Exception as e:
-                # Handle ValidationException properly
-                if "ValidationException" in str(e):
-                    error_message = str(e)
-                    print(f"Validation error: {error_message}")
-                else:
-                    print(f"Error receiving response: {e}")
-                raise e
+    def _handle_tool_use_start(self, tool_use_data: Dict[str, Any]):
+        """Stores the state of a tool use request when it begins."""
+        self.tool_use_content = tool_use_data
+        self.tool_name = tool_use_data.get("toolName", "")
+        self.tool_use_id = tool_use_data.get("toolUseId", "")
+        logger.info(
+            f"Tool use detected: {self.tool_name}, ID: {self.tool_use_id}"
+        )
 
-        self.is_active = False
-        await self.close()
+    async def _handle_tool_use_end(self, content_end_data: Dict[str, Any]):
+        """
+        Executes the tool and sends the results back to Bedrock when a
+        tool use content block ends.
+        """
+        prompt_name = content_end_data.get("promptName")
+        if not all([prompt_name, self.tool_name, self.tool_use_id]):
+            logger.warning("Missing context to handle tool use end. Aborting.")
+            return
+
+        logger.info(f"Processing result for tool '{self.tool_name}'")
+        tool_result = await self.processToolUse(
+            self.tool_name, self.tool_use_content
+        )
+
+        # The response sequence must be: start, input, end.
+        tool_content_name = f"tool-content-{uuid.uuid4()}"
+
+        # 1. Send tool start event
+        start_event = S2sEvent.content_start_tool(
+            prompt_name, tool_content_name, self.tool_use_id
+        )
+        await self.send_raw_event(start_event)
+
+        # 2. Send tool result event
+        result_str = (
+            json.dumps(tool_result)
+            if isinstance(tool_result, dict)
+            else str(tool_result)
+        )
+        result_event = S2sEvent.text_input_tool(
+            prompt_name, tool_content_name, result_str
+        )
+        await self.send_raw_event(result_event)
+
+        # 3. Send tool content end event
+        end_event = S2sEvent.content_end(prompt_name, tool_content_name)
+        await self.send_raw_event(end_event)
 
     async def processToolUse(self, toolName, toolUseContent):
         """Return the tool result"""
-        print(f"Tool Use Content: {toolUseContent}")
-
+        logger.debug(f"Tool Use Content: {toolUseContent}")
         toolName = toolName.lower()
-        content, result = None, None
+        content = None
+        result = None
         try:
             if toolUseContent.get("content"):
-                # Parse the JSON string in the content field
-                query_json = json.loads(toolUseContent.get("content"))
-                content = toolUseContent.get(
-                    query_json
-                )  # Pass the JSON string directly to the agent
-                print(f"Extracted query: {content}")
+                # The content is a JSON *string*, so we must parse it first.
+                content_json = json.loads(toolUseContent.get("content"))
+                # Now `content_json` is a Python dict.
+                # We might need the original string or the dict depending on the tool.
+                content = toolUseContent.get("content")
 
             # Simple toolUse to get system time in UTC
             if toolName == "getdatetool":

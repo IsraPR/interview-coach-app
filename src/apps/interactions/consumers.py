@@ -15,22 +15,108 @@ class SpeechToSpeechConsumer(AsyncWebsocketConsumer):
         try:
             if not isinstance(payload, str):
                 payload = json.dumps(payload)
+                # if payload["event"]:
+                #     logger.debug(payload)
             await self.send(text_data=payload)
         except Exception as e:
             logger.error(f"Failed to send message to frontend: {e}")
 
     async def connect(self):
+        """
+        Connects, accepts, and then immediately tries to initialize the backend stream.
+        Provides immediate feedback to the client on failure.
+        """
         self.stream_manager = None
-        self.forward_task = None
         self.session_tasks = set()
-        self.transcription = []
-        self.start_time = None
-        self.write_transcript = False
-        self.role = "Unknown"
         self.session_started = False
-        self.input_queue = asyncio.Queue()
+
         await self.accept()
-        await self.safe_send({"event": {"message": "Connected!"}})
+
+        try:
+            # --- Stage 1: Create and start initialization ---
+            self.stream_manager = S2sSessionManager(
+                model_id=SPEECH_TO_SPEECH_MODEL_ID,
+                region=DEFAULT_REGION,
+            )
+            # This starts the background tasks but doesn't wait for them to be healthy.
+            await self.stream_manager.initialize_stream()
+
+            # --- Stage 2: Wait for the health signal ---
+            # We wait for the _process_responses task to confirm the connection is good.
+            # We add a timeout to prevent waiting forever.
+            # logger.info("Waiting for Bedrock stream to become healthy...")
+            # await asyncio.wait_for(
+            #     self.stream_manager.stream_healthy.wait(), timeout=10.0
+            # )
+
+            # --- Stage 3: Check the result ---
+            if self.stream_manager.initialization_error:
+                # The background task failed and set an error.
+                raise self.stream_manager.initialization_error
+            # --- SUCCESS PATH ---
+            # If we get here, the connection to Bedrock was successful.
+
+            # Now, create and manage the background tasks.
+            forward_task = asyncio.create_task(self.forward_responses())
+            self.session_tasks.add(forward_task)
+            forward_task.add_done_callback(self.session_tasks.discard)
+
+            self.session_tasks.add(self.stream_manager.response_task)
+            self.stream_manager.response_task.add_done_callback(
+                self.session_tasks.discard
+            )
+
+            self.session_tasks.add(self.stream_manager.response_audio_task)
+            self.stream_manager.response_audio_task.add_done_callback(
+                self.session_tasks.discard
+            )
+
+            # Inform the client that we are fully connected and ready.
+            await self.safe_send(
+                {
+                    "event": {
+                        "message": "Backend session initialized successfully."
+                    }
+                }
+            )
+            logger.info(
+                f"WebSocket {self.channel_name} connected and Bedrock session started."
+            )
+        except asyncio.TimeoutError:
+            error_message = "Timed out waiting for AI service connection."
+            logger.error(f"WebSocket {self.channel_name}: {error_message}")
+            await self.safe_send(
+                {
+                    "event": {
+                        "error": {
+                            "code": "backend_timeout",
+                            "message": error_message,
+                        }
+                    }
+                }
+            )
+            await self.close(code=4002)
+
+        except Exception as e:
+            # --- FAILURE PATH ---
+            # If initialize_stream() fails for any reason (like bad credentials).
+            error_message = f"Failed to initialize backend session: {e}"
+            logger.error(f"WebSocket {self.channel_name}: {error_message}")
+
+            # Send a clear error message to the client.
+            await self.safe_send(
+                {
+                    "event": {
+                        "error": {
+                            "code": "backend_connection_failed",
+                            "message": "Could not connect to the AI service. Please check credentials or server status.",
+                        }
+                    }
+                }
+            )
+
+            # Close the WebSocket connection with a custom error code.
+            await self.close(code=4001)
 
     async def disconnect(self, code: int):
         """
@@ -60,6 +146,15 @@ class SpeechToSpeechConsumer(AsyncWebsocketConsumer):
             logger.error(f"Error during graceful disconnect: {e}")
 
     async def receive(self, text_data: str = None):
+        """
+        The receive method is now simpler. It can assume that if it's being called,
+        the stream_manager is already active and healthy.
+        """
+        if not self.stream_manager or not self.stream_manager.is_active:
+            logger.warning(
+                f"WebSocket {self.channel_name}: Received data but stream is not active. Ignoring."
+            )
+            return
         try:
             data = json.loads(text_data)
             if "body" in data:
@@ -68,29 +163,6 @@ class SpeechToSpeechConsumer(AsyncWebsocketConsumer):
                 return
 
             event_type = list(data["event"].keys())[0]
-            if not self.session_started:
-                self.session_started = True
-                self.stream_manager = S2sSessionManager(
-                    model_id=SPEECH_TO_SPEECH_MODEL_ID,
-                    region=DEFAULT_REGION,
-                    mcp_client=None,
-                    strands_agent=None,
-                )
-                await self.stream_manager.initialize_stream()
-
-                forward_task = asyncio.create_task(self.forward_responses())
-
-                self.session_tasks.add(forward_task)
-                forward_task.add_done_callback(self.session_tasks.discard)
-                self.session_tasks.add(self.stream_manager.response_task)
-                self.stream_manager.response_task.add_done_callback(
-                    self.session_tasks.discard
-                )
-
-                self.session_tasks.add(self.stream_manager.response_audio_task)
-                self.stream_manager.response_audio_task.add_done_callback(
-                    self.session_tasks.discard
-                )
 
             if event_type == "promptStart":
                 prompt_name = data["event"]["promptStart"]["promptName"]
@@ -116,7 +188,7 @@ class SpeechToSpeechConsumer(AsyncWebsocketConsumer):
             logger.error(f"Receive error: {e}")
             await self.send(
                 text_data=json.dumps(
-                    {"error": f"Unexpected server error: {str(e)}"}
+                    {"event": {"error": {"message": "Unexpected error"}}}
                 )
             )
 
