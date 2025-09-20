@@ -108,9 +108,13 @@ class S2sSessionManager:
 
         try:
             # Initialize the stream
-            self.stream = await self.bedrock_client.invoke_model_with_bidirectional_stream(
-                InvokeModelWithBidirectionalStreamOperationInput(
-                    model_id=self.model_id
+            self.stream = (
+                await (
+                    self.bedrock_client.invoke_model_with_bidirectional_stream(
+                        InvokeModelWithBidirectionalStreamOperationInput(
+                            model_id=self.model_id
+                        )
+                    )
                 )
             )
             self.is_active = True
@@ -124,7 +128,7 @@ class S2sSessionManager:
             )
 
             # Wait a bit to ensure everything is set up
-            await asyncio.sleep(0.1)
+            await asyncio.sleep(0.2)
 
             print("Stream initialized successfully")
             return self
