@@ -1,26 +1,26 @@
-version: '3.9'
-
 services:
-
   api:
     build: .
     container_name: ai_api
     command: >
       sh -c "python manage.py migrate &&
+             python manage.py migrate --database=vector_store &&
              python manage.py runserver 0.0.0.0:8000"
     develop:
       watch:
         - action: sync
           path: ./src
           target: /app/src
-          ignore: # Best practice: ignore temporary files
+          ignore:
             - "**/__pycache__/"
             - "*.pyc"
             - "*.egg-info"
     ports:
       - "8000:8000"
+    environment:
+      - DJANGO_ENVIRONMENT=docker
     env_file:
-      - .env
+      - .env.docker
     depends_on:
       - db
       - redis
@@ -28,31 +28,37 @@ services:
   worker:
     build: .
     container_name: ai_celery_worker
-    command: celery -A core worker -l info # Command to start the worker
+    command: celery -A core worker -l info
     develop:
       watch:
         - action: sync
           path: ./src
           target: /app/src
-          ignore: # Best practice: ignore temporary files
+          ignore:
             - "**/__pycache__/"
             - "*.pyc"
             - "*.egg-info"
+    environment:
+      - DJANGO_ENVIRONMENT=docker
     env_file:
-      - .env
+      - .env.docker
     depends_on:
       - redis
       - db
 
   db:
-    image: postgres:15
+    image: pgvector/pgvector:pg15
     container_name: ai_postgres_db
     volumes:
       - postgres_data:/var/lib/postgresql/data/
+      - ./init_scripts/init_db.sh:/docker-entrypoint-initdb.d/init_db.sh
     environment:
+      - DJANGO_ENVIRONMENT=docker
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    env_file:
+      - .env.docker
     ports:
       - "5432:5432"
 

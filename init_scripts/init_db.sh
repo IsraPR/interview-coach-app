@@ -1,0 +1,28 @@
+#!/bin/bash
+set -e
+
+echo "Creating schemas and setting permissions for user: $POSTGRES_USER"
+
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+    -- Only create schemas and permissions
+    CREATE SCHEMA IF NOT EXISTS app_data;
+    CREATE SCHEMA IF NOT EXISTS vector_store;
+    
+    -- Grant permissions
+    GRANT USAGE ON SCHEMA app_data TO ${POSTGRES_USER};
+    GRANT USAGE ON SCHEMA vector_store TO ${POSTGRES_USER};
+    GRANT CREATE ON SCHEMA app_data TO ${POSTGRES_USER};
+    GRANT CREATE ON SCHEMA vector_store TO ${POSTGRES_USER};
+    GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA app_data TO ${POSTGRES_USER};
+    GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA vector_store TO ${POSTGRES_USER};
+    GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA app_data TO ${POSTGRES_USER};
+    GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA vector_store TO ${POSTGRES_USER};
+    
+    -- Set default privileges for future tables
+    ALTER DEFAULT PRIVILEGES IN SCHEMA app_data GRANT ALL ON TABLES TO ${POSTGRES_USER};
+    ALTER DEFAULT PRIVILEGES IN SCHEMA vector_store GRANT ALL ON TABLES TO ${POSTGRES_USER};
+    ALTER DEFAULT PRIVILEGES IN SCHEMA app_data GRANT ALL ON SEQUENCES TO ${POSTGRES_USER};
+    ALTER DEFAULT PRIVILEGES IN SCHEMA vector_store GRANT ALL ON SEQUENCES TO ${POSTGRES_USER};
+EOSQL
+
+echo "Schema initialization completed!"

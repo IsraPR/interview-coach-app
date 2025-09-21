@@ -1,21 +1,14 @@
 from .base import *  # noqa
 
-# Import settings from base.py
+# Read local environment file
+environ.Env.read_env(BASE_DIR / ".env.local")  # noqa
 
-# GENERAL
-# ------------------------------------------------------------------------------
-# In development, we allow all hosts. In production, this will be strictly controlled.
-ALLOWED_HOSTS = ["*"]
+# Development-specific overrides
+DEBUG = True
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "0.0.0.0"]
 
-# DJANGO-DEBUG-TOOLBAR (OPTIONAL BUT RECOMMENDED)
-# ------------------------------------------------------------------------------
-# To install: uv pip install django-debug-toolbar
-# INSTALLED_APPS += ["debug_toolbar"]
-# MIDDLEWARE += ["debug_toolbar.middleware.DebugToolbarMiddleware"]
-# INTERNAL_IPS = ["127.0.0.1"]
-
-# Any other development-specific settings can go here.
-# For example, you might want to configure email to print to the console instead of sending.
-# EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
-
-logger.info("LOADING DEVELOPMENT SETTINGS")
+# You can add development-specific settings here if needed
+# For example:
+# - Email backend for testing
+# - Additional debugging tools
+# - Development-specific middleware

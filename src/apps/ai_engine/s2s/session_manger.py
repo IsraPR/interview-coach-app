@@ -334,7 +334,7 @@ class S2sSessionManager:
         try:
             if toolUseContent.get("content"):
                 # The content is a JSON *string*, so we must parse it first.
-                content_json = json.loads(toolUseContent.get("content"))
+                # content_json = json.loads(toolUseContent.get("content"))
                 # Now `content_json` is a Python dict.
                 # We might need the original string or the dict depending on the tool.
                 content = toolUseContent.get("content")
