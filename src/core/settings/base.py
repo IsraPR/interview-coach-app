@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     "apps.ai_engine",
     "apps.common_models",
     "apps.coaching",
+    "apps.knowledge_base",
 ]
 
 
