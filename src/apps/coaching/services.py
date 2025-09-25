@@ -163,3 +163,17 @@ def create_interview_session_setup(
     )
 
     return setup
+
+
+def list_interview_session_setups() -> List[InterviewSessionSetup]:
+    """
+    Lists all interview session setups.
+    """
+    return InterviewSessionSetup.objects.all()
+
+
+def get_session_setup_detail(setup_id: int) -> InterviewSessionSetup:
+    """
+    Retrieves a single interview session setup by its ID.
+    """
+    return get_object_or_404(InterviewSessionSetup, id=setup_id)

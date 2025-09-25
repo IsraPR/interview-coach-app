@@ -155,3 +155,21 @@ def create_interview_session_setup(
     request, payload: InterviewSessionSetupCreateSchema
 ):
     return 201, services.create_interview_session_setup(payload=payload)
+
+
+@session_setup_router.get(
+    "",
+    response=List[InterviewSessionSetupSchema],
+    summary="List all Session Setups",
+)
+def list_interview_session_setups(request):
+    return services.list_interview_session_setups()
+
+
+@session_setup_router.get(
+    "/{setup_id}",
+    response=InterviewSessionSetupSchema,
+    summary="Retrieve a specific Session Setup",
+)
+def get_session_setup_detail(request, setup_id: int):
+    return services.get_session_setup_detail(setup_id=setup_id)
