@@ -1,6 +1,6 @@
 from typing import List
 from pydantic import BaseModel
-from ninja import Router, Path
+from ninja import Router, Path, Query
 from .schemas import (
     JobProfileSchema,
     JobProfileCreateSchema,
@@ -16,6 +16,8 @@ from .schemas import InterviewSessionSchema, InterviewSessionCreateSchema
 from .schemas import (
     InterviewSessionSetupSchema,
     InterviewSessionSetupCreateSchema,
+    ListInterviewSessionsSchema,
+    InterviewSessionFeedBackSchema,
 )
 
 from . import services
@@ -169,12 +171,29 @@ def create_interview_session(
 
 @profile_sessions_router.get(
     "",
-    response=List[InterviewSessionSchema],
+    response=List[ListInterviewSessionsSchema],
     summary="List Sessions for a Profile",
 )
-def list_interview_sessions(request, profile_id: int):
+def list_interview_sessions(
+    request,
+    profile_id: int = Path(...),
+    status: str = Query(...),
+):
     return services.list_interview_sessions(
-        user=request.auth, profile_id=profile_id
+        user=request.auth, profile_id=profile_id, status=status
+    )
+
+
+@profile_sessions_router.get(
+    "/{session_id}",
+    response=InterviewSessionFeedBackSchema,
+    summary="Get a Profile Session feedback",
+)
+def get_job_profile_session(
+    request, profile_id: int = Path(...), session_id: int = Path(...)
+):
+    return services.get_interview_session_detail(
+        user=request.auth, session_id=session_id
     )
 
 

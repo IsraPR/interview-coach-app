@@ -7,6 +7,18 @@ from typing import Dict, Any
 from apps.ai_engine.s2s.session_manger import S2sSessionManager
 from core.settings.base import logger
 from core.settings.base import DEFAULT_REGION, SPEECH_TO_SPEECH_MODEL_ID
+from apps.coaching.models import InterviewSession
+from apps.agents.services.agent_factory import get_feedback_agent
+
+
+from pydantic import BaseModel
+
+
+class AIFeedback(BaseModel):
+    strengths: list[str]
+    areas_of_improvement: list[str]
+    general_feedback: str
+    final_rating: int
 
 
 class SpeechToSpeechConsumer(AsyncWebsocketConsumer):
@@ -38,6 +50,28 @@ class SpeechToSpeechConsumer(AsyncWebsocketConsumer):
 
             if self.stream_manager:
                 await self.stream_manager.close()
+
+            if self.transcription:
+                logger.debug(f"TRANSCRIPTION: {self.transcription}")
+                self.session.full_transcript = self.transcription
+
+                agent = get_feedback_agent()
+                logger.debug("Before agent invoke")
+
+                profile_id = self.session.job_profile_id
+                ai_feedback: AIFeedback = await agent.structured_output_async(
+                    output_model=AIFeedback,
+                    prompt=f"Start a rating for the profile_id={profile_id} and the transcription is: {self.transcription}",
+                )
+
+                logger.debug("After agent invoke")
+                self.session.session_feedback = ai_feedback.model_dump()
+                self.session.status = "COMPLETED"
+                await self.session.asave()
+            else:
+                self.session.status = "INCOMPLETE"
+                await self.session.asave()
+
         except Exception as e:
             logger.error(f"Error on disconnect: {e}")
 
@@ -68,6 +102,9 @@ class SpeechToSpeechConsumer(AsyncWebsocketConsumer):
                 self.stream_manager.prompt_name = prompt_name
                 self.start_time = time.perf_counter()
                 logger.debug(f"PROMPT NAME: {prompt_name}")
+                self.session = await InterviewSession.objects.aget(
+                    prompt_name=prompt_name
+                )
 
             elif event_type == "contentStart":
                 content_name = data["event"]["contentStart"]["contentName"]
@@ -85,6 +122,10 @@ class SpeechToSpeechConsumer(AsyncWebsocketConsumer):
                 # Forward to Bedrock
                 await self.stream_manager.send_raw_event(data)
         except Exception as e:
+            if self.session:
+                self.session.status = "ERROR"
+                await self.session.asave
+
             logger.error(f"Receive error: {e}")
             await self.send(
                 text_data=json.dumps(

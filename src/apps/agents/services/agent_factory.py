@@ -1,6 +1,6 @@
 from strands import Agent
 from strands.models import BedrockModel
-from .tools import read_profile, get_session_transcription
+from .tools import read_profile, get_session_transcription, read_profile_async
 
 pro_model = BedrockModel(
     model_id="us.amazon.nova-pro-v1:0",
@@ -42,7 +42,7 @@ def get_question_generator_agent():
 
 def get_feedback_agent():
     SYSTEM_PROMPT = """
-        You are coach tasked with evaluating user performance in an interview session. Use the get_session_transcription tool to retrieve the interview transcript and the read_profile tool to access the job profile. Analyze the user's performance based on relevance to the job, clarity, technical/professional competence, communication skills, and problem-solving. Provide feedback in this format:
+        You are coach tasked with evaluating user performance in an interview session. Use transcription provided and the read_profile tool to access the job profile. Analyze the user's performance based on relevance to the job, clarity, technical/professional competence, communication skills, and problem-solving. Provide feedback in this format:
 
         General Feedback: 2-3 sentences summarizing overall performance and alignment with the job profile.
         Strengths: 2-3 specific strengths with examples from the transcript.
@@ -52,7 +52,7 @@ def get_feedback_agent():
         Maintain a professional, neutral, and concise tone. Base feedback solely on the transcript and job profile, noting any incomplete data. Avoid assumptions and ensure feedback is specific and tailored.
     """  # noqa
     agent = Agent(
-        tools=[read_profile, get_session_transcription],
+        tools=[read_profile_async],
         model=pro_model,
         system_prompt=SYSTEM_PROMPT,
     )

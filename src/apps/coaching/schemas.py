@@ -90,6 +90,33 @@ class InterviewSessionSchema(ModelSchema):
         ]
 
 
+class InterviewSessionFeedBackSchema(ModelSchema):
+    class Meta:
+        model = InterviewSession
+        fields = [
+            "id",
+            "status",
+            "prompt_name",
+            "session_feedback",
+            "full_transcript",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class ListInterviewSessionsSchema(ModelSchema):
+    class Meta:
+        model = InterviewSession
+        fields = [
+            "id",
+            "status",
+            "prompt_name",
+            "session_feedback",
+            "created_at",
+            "updated_at",
+        ]
+
+
 # For creation, we don't need any input, as a session is just "started"
 class InterviewSessionCreateSchema(Schema):
     session_setup_id: int

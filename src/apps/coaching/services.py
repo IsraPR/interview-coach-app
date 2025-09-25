@@ -86,7 +86,7 @@ def create_interview_session(
 
 
 def list_interview_sessions(
-    user: User, profile_id: int
+    user: User, profile_id: int, status: str
 ) -> List[InterviewSession]:
     """
     Lists all interview sessions for a specific job profile owned by the user.
@@ -94,7 +94,9 @@ def list_interview_sessions(
     # Ensure the parent profile belongs to the user before listing its children.
     get_job_profile_detail(user=user, profile_id=profile_id)
 
-    return InterviewSession.objects.filter(job_profile__id=profile_id)
+    return InterviewSession.objects.filter(
+        job_profile__id=profile_id, status=status
+    )
 
 
 def get_interview_session_detail(

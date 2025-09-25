@@ -20,10 +20,25 @@ def read_profile(profile_id: str) -> dict:
 
 
 @tool
-def get_session_transcription(session_id: str) -> dict:
+async def read_profile_async(profile_id: str) -> dict:
     """
-    Reads the full session transcription
+    Read a user profile from the database (async-safe).
     """
-    # Use Django ORM for safe read
-    session = InterviewSession.objects.get(id=session_id)
+    profile = await JobProfile.objects.aget(id=profile_id)
+    return {
+        "profile_name": profile.profile_name,
+        "job_description": profile.job_description,
+        "company_name": profile.company_name,
+        "company_background": profile.company_background,
+        "responsibilities": list(profile.responsibilities),
+        "required_skills": list(profile.required_skills),
+    }
+
+
+@tool
+async def get_session_transcription(session_id: str) -> dict:
+    """
+    Read the full session transcription (async-safe).
+    """
+    session = await InterviewSession.objects.aget(id=session_id)
     return session.full_transcript
