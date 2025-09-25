@@ -92,7 +92,6 @@ class InterviewSessionSchema(ModelSchema):
 
 # For creation, we don't need any input, as a session is just "started"
 class InterviewSessionCreateSchema(Schema):
-    practice_profile_id: int
     session_setup_id: int
 
 

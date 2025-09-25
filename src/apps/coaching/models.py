@@ -210,6 +210,7 @@ class InterviewSession(BaseModel):
     )
 
     session_feedback = models.JSONField(
+        default=dict,
         blank=True,
         help_text="An AI-generated feedback of the user's performance in the session.",
     )
@@ -218,6 +219,7 @@ class InterviewSession(BaseModel):
     full_transcript = models.JSONField(
         default=list,
         blank=True,
+        null=True,
         help_text="The full transcript of the interview session, including both user and AI responses.",
     )
 

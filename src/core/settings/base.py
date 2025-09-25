@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     "apps.common_models",
     "apps.coaching",
     "apps.knowledge_base",
+    "apps.agents",
 ]
 
 

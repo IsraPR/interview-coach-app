@@ -1,5 +1,6 @@
 from typing import List
-from ninja import Router
+from pydantic import BaseModel
+from ninja import Router, Path
 from .schemas import (
     JobProfileSchema,
     JobProfileCreateSchema,
@@ -18,6 +19,11 @@ from .schemas import (
 )
 
 from . import services
+
+from apps.agents.services.agent_factory import get_question_generator_agent
+from common.prompts.prompt_manager import PromptManager
+
+from core.settings import logger
 
 # --- Router for User Resumes ---
 resume_router = Router(tags=["User Resume"])
@@ -102,17 +108,62 @@ def delete_job_profile(request, profile_id: int):
 profile_sessions_router = Router(tags=["Profile Interview Sessions"])
 
 
+class QuestionSet(BaseModel):
+    questions: list[str]
+
+
 @profile_sessions_router.post(
     "",
     response={201: InterviewSessionSchema},
     summary="Start a new Interview Session",
 )
 def create_interview_session(
-    request, profile_id: int, payload: InterviewSessionCreateSchema
+    request,
+    payload: InterviewSessionCreateSchema,
+    profile_id: int = Path(...),
 ):
 
-    return 201, services.create_interview_session(
+    session_setup = services.get_session_setup_detail(
+        setup_id=payload.session_setup_id
+    )
+    question_generator = get_question_generator_agent()
+    job_profile = services.get_job_profile_detail(
         user=request.auth, profile_id=profile_id
+    )
+    set_questions = question_generator.structured_output(
+        output_model=QuestionSet,
+        prompt=f"Create the set of question for the profile {profile_id}",
+    ).questions
+
+    logger.info(
+        f"Generated questions for profile {profile_id}: {set_questions}"
+    )
+    user_resume = services.get_user_resume(request.user)
+    template_data = {
+        "candidate_name": request.user.first_name,
+        "candidate_background": user_resume.description,
+        "set_of_question": set_questions,
+        "company_name": job_profile.company_name,
+        "company_background": job_profile.company_background,
+        "target_role": job_profile.target_role,
+        "recruiter_style": session_setup.interviewer_attitude,
+    }
+    prompt_manager = PromptManager()
+    system_prompt = prompt_manager.get_prompt(
+        session_setup.interview_type, data=template_data
+    )
+
+    session_data = {
+        "session_setup": session_setup,
+        "s2s_system_prompt": system_prompt,
+        "inference_config": {
+            "maxTokens": 1024,
+            "temperature": 0.7,
+            "topP": 1.0,
+        },
+    }
+    return 201, services.create_interview_session(
+        user=request.auth, profile_id=profile_id, session_data=session_data
     )
 
 

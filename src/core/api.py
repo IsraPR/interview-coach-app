@@ -14,7 +14,10 @@ from apps.coaching.api import (
     profiles_router,
     profile_sessions_router,
     sessions_router,
+    resume_router,
+    session_setup_router,
 )
+from apps.agents.api.router import router as agents_router
 
 api = NinjaExtraAPI()
 api.register_controllers(CustomTokenObtainPairController)
@@ -33,9 +36,12 @@ api.add_router(
     auth=JWTAuth(),
 )
 api.add_router("/coaching/sessions", sessions_router, auth=JWTAuth())
+api.add_router("/coaching/session-setup", session_setup_router, auth=JWTAuth())
+api.add_router("/user/resume", resume_router, auth=JWTAuth())
+api.add_router("/agents/", agents_router, auth=JWTAuth())
 
 
 @api.get("/health/", summary="Test API Status")
 def health_check(request):
-    """A simple secured endpoint to test authentication."""
+    """A simple secured endpoint tha api health."""
     return {"status": "healthy"}

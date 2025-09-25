@@ -69,7 +69,9 @@ def delete_job_profile(user: User, profile_id: int):
     return
 
 
-def create_interview_session(user: User, profile_id: int) -> InterviewSession:
+def create_interview_session(
+    user: User, profile_id: int, session_data: dict
+) -> InterviewSession:
     """
     Creates a new, pending interview session for one of the user's job profiles.
     """
@@ -77,7 +79,9 @@ def create_interview_session(user: User, profile_id: int) -> InterviewSession:
     profile = get_job_profile_detail(user=user, profile_id=profile_id)
 
     # Create the new session linked to this profile.
-    session = InterviewSession.objects.create(job_profile=profile)
+    session = InterviewSession.objects.create(
+        job_profile=profile, **session_data
+    )
     return session
 
 
