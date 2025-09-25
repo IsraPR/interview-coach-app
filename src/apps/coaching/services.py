@@ -4,7 +4,14 @@ from django.http import Http404
 from django.contrib.auth import get_user_model
 from .models import JobProfile
 from .models import InterviewSession
+from .models import UserResume
+from .models import InterviewSessionSetup
 from .schemas import JobProfileCreateSchema, JobProfileUpdateSchema
+from .schemas import UserResumeCreateSchema
+from .schemas import InterviewSessionSetupCreateSchema
+
+from core.settings import logger
+
 
 User = get_user_model()
 
@@ -99,3 +106,60 @@ def get_interview_session_detail(
         raise Http404("No InterviewSession found matching the query")
 
     return session
+
+
+def create_user_resume(
+    user: User, payload: UserResumeCreateSchema
+) -> UserResume:
+    """
+    Creates or updates the UserResume for a given user.
+    Each user can have only one resume per current_role.
+    """
+    resume = UserResume.objects.create(
+        user=user,
+        current_role=payload.current_role,
+        key_skills=payload.key_skills,
+        description=payload.description,
+    )
+    return resume
+
+
+def update_user_resume(
+    user: User, payload: UserResumeCreateSchema
+) -> UserResume:
+    """
+    Updates an existing UserResume, ensuring it belongs to the user.
+    """
+    resume = get_object_or_404(UserResume, user=user)
+
+    for attr, value in payload.dict(exclude_unset=True).items():
+        setattr(resume, attr, value)
+
+    resume.save()
+    return resume
+
+
+def get_user_resume(user: User) -> UserResume:
+    """
+    Retrieves the UserResume for a given user.
+    """
+    return get_object_or_404(UserResume, user=user)
+
+
+# Session setup schema
+
+
+def create_interview_session_setup(
+    payload: InterviewSessionSetupCreateSchema,
+) -> InterviewSession:
+    """
+    Updates the setup details for a specific interview session.
+    """
+    setup, created = InterviewSessionSetup.objects.get_or_create(
+        **payload.model_dump()
+    )
+    logger.info(
+        f"Interview session setup {'created' if created else 'updated'}: {setup.id}"
+    )
+
+    return setup

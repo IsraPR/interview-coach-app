@@ -5,8 +5,50 @@ from .schemas import (
     JobProfileCreateSchema,
     JobProfileUpdateSchema,
 )
-from . import services
+from .schemas import (
+    UserResumeSchema,
+    UserResumeCreateSchema,
+    UserResumeUpdateSchema,
+)
 from .schemas import InterviewSessionSchema, InterviewSessionCreateSchema
+
+from .schemas import (
+    InterviewSessionSetupSchema,
+    InterviewSessionSetupCreateSchema,
+)
+
+from . import services
+
+# --- Router for User Resumes ---
+resume_router = Router(tags=["User Resume"])
+
+
+@resume_router.post(
+    "",
+    response={201: UserResumeSchema},
+    summary="Create User Resume",
+)
+def create_user_resume(request, payload: UserResumeCreateSchema):
+    return 201, services.create_user_resume(user=request.auth, payload=payload)
+
+
+@resume_router.put(
+    "",
+    response={200: UserResumeSchema},
+    summary="Update User Resume",
+)
+def update_user_resume(request, payload: UserResumeUpdateSchema):
+    return services.update_user_resume(user=request.auth, payload=payload)
+
+
+@resume_router.get(
+    "",
+    response={200: UserResumeSchema},
+    summary="Retrieve User Resume",
+)
+def get_user_resume(request):
+    return services.get_user_resume(user=request.auth)
+
 
 # --- Router for Job Profiles ---
 profiles_router = Router(tags=["Job Profiles"])
@@ -37,7 +79,7 @@ def get_job_profile_detail(request, profile_id: int):
     )
 
 
-@profiles_router.patch(
+@profiles_router.put(
     "/{profile_id}", response=JobProfileSchema, summary="Update a Job Profile"
 )
 def update_job_profile(
@@ -68,6 +110,7 @@ profile_sessions_router = Router(tags=["Profile Interview Sessions"])
 def create_interview_session(
     request, profile_id: int, payload: InterviewSessionCreateSchema
 ):
+
     return 201, services.create_interview_session(
         user=request.auth, profile_id=profile_id
     )
@@ -97,3 +140,18 @@ def get_interview_session_detail(request, session_id: int):
     return services.get_interview_session_detail(
         user=request.auth, session_id=session_id
     )
+
+
+# --- Router for the session setup ---
+session_setup_router = Router(tags=["Interview Session Setup"])
+
+
+@session_setup_router.post(
+    "",
+    response={201: InterviewSessionSetupSchema},
+    summary="Create a new Interview Session Setup",
+)
+def create_interview_session_setup(
+    request, payload: InterviewSessionSetupCreateSchema
+):
+    return 201, services.create_interview_session_setup(payload=payload)
